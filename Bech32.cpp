@@ -198,16 +198,18 @@ static int convert_bits(uint8_t* out, size_t* outlen, int outbits, const uint8_t
   return 1;
 }
 
-int segwit_addr_encode(char *output, const char *hrp, int witver, const uint8_t *witprog, size_t witprog_len) {
+int segwit_addr_encode(char *output, const char *hrp, int witver, const uint8_t *witprog, size_t witprog_len, bool has_witver) {
   uint8_t data[65];
   size_t datalen = 0;
   if (witver > 16) return 0;
   if (witver == 0 && witprog_len != 20 && witprog_len != 32) return 0;
   if (witprog_len < 2 || witprog_len > 40) return 0;
-  data[0] = witver;
-  convert_bits(data + 1, &datalen, 5, witprog, witprog_len, 8, 1);
-  ++datalen;
-  return bech32_encode(output, hrp, data, datalen);
+  int start = 0;
+  if (has_witver) {
+    data[start++] = witver;
+  }
+  convert_bits(data + start, &datalen, 5, witprog, witprog_len, 8, 1);
+  return bech32_encode(output, hrp, data, datalen + start);
 }
 
 int segwit_addr_decode(int* witver, uint8_t* witdata, size_t* witdata_len, const char* hrp, const char* addr) {

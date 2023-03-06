@@ -84,6 +84,9 @@ void CheckAddress(Secp256K1 *T,std::string address,std::string privKeyStr) {
   case 'b':
   case 'B':
     type = BECH32; break;
+  case 'n':
+  case 'N':
+    type = NOSTR; break;
   default:
     printf("Failed ! \n%s Address format not supported\n", address.c_str());
     return;
@@ -400,6 +403,14 @@ void Secp256K1::GetHash160(int type,bool compressed,
   }
   break;
 
+  case NOSTR:
+    // TODO: use SSE instr
+    k0.x.Get32Bytes(h0);
+    k1.x.Get32Bytes(h1);
+    k2.x.Get32Bytes(h2);
+    k3.x.Get32Bytes(h3);
+  break;
+
   case P2SH:
   {
 
@@ -580,6 +591,13 @@ void Secp256K1::GetHash160(int type, bool compressed, Point &pubKey, unsigned ch
   }
   break;
 
+  case NOSTR:
+  {
+    // TODO: check even-ness
+    pubKey.x.Get32Bytes(hash);
+  }
+  break;
+
   case P2SH:
   {
 
@@ -674,13 +692,27 @@ std::vector<std::string> Secp256K1::GetAddress(int type, bool compressed, unsign
   case BECH32:
   {
     char output[128];
-    segwit_addr_encode(output, "bc", 0, h1, 20);
+    segwit_addr_encode(output, "bc", 0, h1, 20, true);
     ret.push_back(std::string(output));
-    segwit_addr_encode(output, "bc", 0, h2, 20);
+    segwit_addr_encode(output, "bc", 0, h2, 20, true);
     ret.push_back(std::string(output));
-    segwit_addr_encode(output, "bc", 0, h3, 20);
+    segwit_addr_encode(output, "bc", 0, h3, 20, true);
     ret.push_back(std::string(output));
-    segwit_addr_encode(output, "bc", 0, h4, 20);
+    segwit_addr_encode(output, "bc", 0, h4, 20, true);
+    ret.push_back(std::string(output));
+    return ret;
+  }
+  break;
+  case NOSTR:
+  {
+    char output[128];
+    segwit_addr_encode(output, "npub", 0, h1, 32, false);
+    ret.push_back(std::string(output));
+    segwit_addr_encode(output, "npub", 0, h2, 32, false);
+    ret.push_back(std::string(output));
+    segwit_addr_encode(output, "npub", 0, h3, 32, false);
+    ret.push_back(std::string(output));
+    segwit_addr_encode(output, "npub", 0, h4, 32, false);
     ret.push_back(std::string(output));
     return ret;
   }
@@ -723,7 +755,15 @@ std::string Secp256K1::GetAddress(int type, bool compressed,unsigned char *hash1
     case BECH32:
     {
       char output[128];
-      segwit_addr_encode(output, "bc", 0, hash160, 20);
+      segwit_addr_encode(output, "bc", 0, hash160, 20, true);
+      return std::string(output);
+    }
+    break;
+
+    case NOSTR:
+    {
+      char output[128];
+      segwit_addr_encode(output, "npub", 0, hash160, 32, false);
       return std::string(output);
     }
     break;
@@ -754,7 +794,20 @@ std::string Secp256K1::GetAddress(int type, bool compressed, Point &pubKey) {
     char output[128];
     uint8_t h160[20];
     GetHash160(type, compressed, pubKey, h160);
-    segwit_addr_encode(output,"bc",0,h160,20);
+    segwit_addr_encode(output,"bc",0,h160,20, true);
+    return std::string(output);
+  }
+  break;
+
+  case NOSTR:
+  {
+    if (!compressed) {
+      return " NOSTR: Only compressed key ";
+    }
+    char output[128];
+    unsigned char x_only[32];
+    pubKey.x.Get32Bytes(x_only);
+    segwit_addr_encode(output,"npub",0,x_only, 32, false);
     return std::string(output);
   }
   break;

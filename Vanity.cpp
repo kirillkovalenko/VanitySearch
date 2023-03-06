@@ -245,6 +245,10 @@ VanitySearch::VanitySearch(Secp256K1 *secp, vector<std::string> &inputPrefixes,s
     case 'B':
       searchType = BECH32;
       break;
+    case 'n':
+    case 'N':
+      searchType = NOSTR;
+      break;
 
     default:
       printf("Invalid start character 1,3 or b, expected");
@@ -363,10 +367,16 @@ bool VanitySearch::initPrefix(std::string &prefix,PREFIX_ITEM *it) {
     if(strncmp(prefix.c_str(), "bc1q", 4) == 0)
       aType = BECH32;
     break;
+  case 'n':
+  case 'N':
+    std::transform(prefix.begin(), prefix.end(), prefix.begin(), ::tolower);
+    if(strncmp(prefix.c_str(), "npub1", 5) == 0)
+      aType = NOSTR;
+    break;
   }
 
   if (aType==-1) {
-    printf("Ignoring prefix \"%s\" (must start with 1 or 3 or bc1q)\n", prefix.c_str());
+    printf("Ignoring prefix \"%s\" (must start with 1 or 3 or bc1q or npub1)\n", prefix.c_str());
     return false;
   }
 
@@ -415,6 +425,58 @@ bool VanitySearch::initPrefix(std::string &prefix,PREFIX_ITEM *it) {
     memset(data,0,64);
     size_t data_length;
     if(!bech32_decode_nocheck(data,&data_length,prefix.c_str()+4)) {
+      printf("Ignoring prefix \"%s\" (Only \"023456789acdefghjklmnpqrstuvwxyz\" allowed)\n", prefix.c_str());
+      return false;
+    }
+
+    // Difficulty
+    it->sPrefix = *(prefix_t *)data;
+    it->difficulty = pow(2, 5*(prefix.length()-4));
+    it->isFull = false;
+    it->lPrefix = 0;
+    it->prefix = (char *)prefix.c_str();
+    it->prefixLength = (int)prefix.length();
+
+    return true;
+
+  } else if (aType == NOSTR) {
+
+    // NOSTR
+    // uint8_t witprog[40];
+    // size_t witprog_len;
+    // int witver;
+    // const char* hrp = "npub";
+
+    // int ret = segwit_addr_decode(&witver, witprog, &witprog_len, hrp, prefix.c_str());
+    // Try to attack a full address ?
+    // if (ret && witprog_len==20) {
+
+    //   // mamma mia !
+    //   it->difficulty = pow(2, 160);
+    //   it->isFull = true;
+    //   memcpy(it->hash160, witprog, 20);
+    //   it->sPrefix = *(prefix_t *)(it->hash160);
+    //   it->lPrefix = *(prefixl_t *)(it->hash160);
+    //   it->prefix = (char *)prefix.c_str();
+    //   it->prefixLength = (int)prefix.length();
+    //   return true;
+
+    // }
+
+    if (prefix.length() < 5) {
+      printf("Ignoring prefix \"%s\" (too short, length<5 )\n", prefix.c_str());
+      return false;
+    }
+
+    if (prefix.length() >= 36) {
+      printf("Ignoring prefix \"%s\" (too long, length>36 )\n", prefix.c_str());
+      return false;
+    }
+
+    uint8_t data[64];
+    memset(data,0,64);
+    size_t data_length;
+    if(!bech32_decode_nocheck(data,&data_length,prefix.c_str()+5)) {
       printf("Ignoring prefix \"%s\" (Only \"023456789acdefghjklmnpqrstuvwxyz\" allowed)\n", prefix.c_str());
       return false;
     }
@@ -997,7 +1059,7 @@ void *_FindKeyGPU(void *lpParam) {
 
 void VanitySearch::checkAddresses(bool compressed, Int key, int i, Point p1) {
 
-  unsigned char h0[20];
+  unsigned char h0[32];
   Point pte1[1];
   Point pte2[1];
 
@@ -1059,10 +1121,10 @@ void VanitySearch::checkAddresses(bool compressed, Int key, int i, Point p1) {
 
 void VanitySearch::checkAddressesSSE(bool compressed,Int key, int i, Point p1, Point p2, Point p3, Point p4) {
 
-  unsigned char h0[20];
-  unsigned char h1[20];
-  unsigned char h2[20];
-  unsigned char h3[20];
+  unsigned char h0[32];
+  unsigned char h1[32];
+  unsigned char h2[32];
+  unsigned char h3[32];
   Point pte1[4];
   Point pte2[4];
   prefix_t pr0;
@@ -1433,7 +1495,11 @@ void VanitySearch::FindKeyCPU(TH_PARAM *ph) {
 
         switch (searchMode) {
           case SEARCH_COMPRESSED:
-            checkAddressesSSE(true, key, i, pts[i], pts[i + 1], pts[i + 2], pts[i + 3]);
+            if (searchType == NOSTR) {
+              checkAddressesSSE(true, key, i, pts[i], pts[i + 1], pts[i + 2], pts[i + 3]);
+	    } else {
+              checkAddressesSSE(true, key, i, pts[i], pts[i + 1], pts[i + 2], pts[i + 3]);
+	    }
             break;
           case SEARCH_UNCOMPRESSED:
             checkAddressesSSE(false, key, i, pts[i], pts[i + 1], pts[i + 2], pts[i + 3]);
@@ -1452,7 +1518,11 @@ void VanitySearch::FindKeyCPU(TH_PARAM *ph) {
 
         switch (searchMode) {
         case SEARCH_COMPRESSED:
-          checkAddresses(true, key, i, pts[i]);
+	  if (searchType == NOSTR) {
+            checkAddresses(true, key, i, pts[i]);
+	  } else {
+            checkAddresses(true, key, i, pts[i]);
+	  }
           break;
         case SEARCH_UNCOMPRESSED:
           checkAddresses(false, key, i, pts[i]);

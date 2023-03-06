@@ -26,13 +26,14 @@
 
  /** Encode a SegWit address
   *
-  *  Out: output:   Pointer to a buffer of size 73 + strlen(hrp) that will be
-  *                 updated to contain the null-terminated address.
-  *  In:  hrp:      Pointer to the null-terminated human readable part to use
-  *                 (chain/network specific).
-  *       ver:      Version of the witness program (between 0 and 16 inclusive).
-  *       prog:     Data bytes for the witness program (between 2 and 40 bytes).
-  *       prog_len: Number of data bytes in prog.
+  *  Out: output:     Pointer to a buffer of size 73 + strlen(hrp) that will be
+  *                   updated to contain the null-terminated address.
+  *  In:  hrp:        Pointer to the null-terminated human readable part to use
+  *                   (chain/network specific).
+  *       ver:        Version of the witness program (between 0 and 16 inclusive).
+  *       prog:       Data bytes for the witness program (between 2 and 40 bytes).
+  *       prog_len:   Number of data bytes in prog.
+  *       has_witver: Whether the witness version should be serialized
   *  Returns 1 if successful.
   */
 int segwit_addr_encode(
@@ -40,7 +41,8 @@ int segwit_addr_encode(
   const char *hrp,
   int ver,
   const uint8_t *prog,
-  size_t prog_len
+  size_t prog_len,
+  bool has_witver
 );
 
 /** Decode a SegWit address
@@ -66,11 +68,11 @@ int segwit_addr_decode(
 
 /** Encode a Bech32 string
  *
- *  Out: output:  Pointer to a buffer of size strlen(hrp) + data_len + 8 that
- *                will be updated to contain the null-terminated Bech32 string.
- *  In: hrp :     Pointer to the null-terminated human readable part.
- *      data :    Pointer to an array of 5-bit values.
- *      data_len: Length of the data array.
+ *  Out: output:    Pointer to a buffer of size strlen(hrp) + data_len + 8 that
+ *                  will be updated to contain the null-terminated Bech32 string.
+ *  In: hrp :       Pointer to the null-terminated human readable part.
+ *      data :      Pointer to an array of 5-bit values.
+ *      data_len:   Length of the data array.
  *  Returns 1 if successful.
  */
 int bech32_encode(
